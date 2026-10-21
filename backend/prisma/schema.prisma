@@ -1,0 +1,390 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT // Chờ thanh toán (VNPay chưa trả)
+  PENDING // Chờ xác nhận
+  CONFIRMED // Chờ lấy hàng (đã tạo vận đơn GHN)
+  SHIPPING // Đang giao
+  COMPLETED // Hoàn thành
+  CANCELLED // Đã hủy
+}
+
+enum PaymentMethod {
+  COD
+  VNPAY
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum VoucherScope {
+  PLATFORM
+  SHOP
+}
+
+enum VoucherKind {
+  DISCOUNT
+  SHIPPING
+}
+
+enum ReturnStatus {
+  PENDING
+  REFUNDED
+  REJECTED
+}
+
+enum NotificationType {
+  ORDER
+  PROMO
+  SYSTEM
+}
+
+enum ShopTxType {
+  SETTLEMENT
+  WITHDRAW
+  FEE
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  phone        String?
+  passwordHash String
+  name         String
+  role         Role       @default(BUYER)
+  status       UserStatus @default(ACTIVE)
+  avatar       String?
+  xu           Int        @default(0)
+  lastCheckIn  DateTime?
+  checkInDays  Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  shop           Shop?
+  addresses      Address[]
+  cartItems      CartItem[]
+  orders         Order[]
+  payments       Payment[]
+  reviews        Review[]
+  wishlist       Wishlist[]
+  vouchers       UserVoucher[]
+  notifications  Notification[]
+  returnRequests ReturnRequest[]
+}
+
+model Shop {
+  id            Int            @id @default(autoincrement())
+  ownerId       Int            @unique
+  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  logo          String?
+  cover         String?
+  isMall        Boolean        @default(false)
+  status        ApprovalStatus @default(PENDING)
+  businessType  String         @default("Cá nhân")
+  idNumber      String?
+  documents     String?
+  pickupAddress String?
+  pickupPhone   String?
+  districtId    Int?
+  wardCode      String?
+  city          String?
+  rating        Float          @default(5)
+  followers     Int            @default(0)
+  balance       Int            @default(0)
+  vacationMode  Boolean        @default(false)
+  autoReply     Boolean        @default(true)
+  acceptReturn  Boolean        @default(true)
+  fastShipping  Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+
+  products     Product[]
+  orders       Order[]
+  vouchers     Voucher[]
+  transactions ShopTransaction[]
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  slug      String     @unique
+  visible   Boolean    @default(true)
+  sortOrder Int        @default(0)
+  parentId  Int?
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  brands    Brand[]
+  products  Product[]
+}
+
+model Brand {
+  id         Int       @id @default(autoincrement())
+  name       String
+  categoryId Int
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products   Product[]
+}
+
+model Product {
+  id            Int            @id @default(autoincrement())
+  shopId        Int
+  shop          Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  categoryId    Int
+  category      Category       @relation(fields: [categoryId], references: [id])
+  brandId       Int?
+  brand         Brand?         @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  name          String
+  description   String         @default("")
+  price         Int
+  originalPrice Int?
+  stock         Int            @default(0)
+  sold          Int            @default(0)
+  rating        Float          @default(0)
+  ratingCount   Int            @default(0)
+  images        String[]
+  options       Json?
+  weight        Int            @default(300)
+  freeShip      Boolean        @default(false)
+  isFlashSale   Boolean        @default(false)
+  status        ApprovalStatus @default(PENDING)
+  visible       Boolean        @default(true)
+  flag          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  reviews    Review[]
+  wishlist   Wishlist[]
+
+  @@index([categoryId])
+  @@index([shopId])
+}
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty       Int     @default(1)
+  variant   String  @default("")
+  selected  Boolean @default(true)
+
+  @@unique([userId, productId, variant])
+}
+
+model Address {
+  id           Int     @id @default(autoincrement())
+  userId       Int
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  phone        String
+  line         String
+  provinceId   Int
+  provinceName String
+  districtId   Int
+  districtName String
+  wardCode     String
+  wardName     String
+  isDefault    Boolean @default(false)
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  txnRef        String        @unique
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  amount        Int
+  status        PaymentStatus @default(UNPAID)
+  bankCode      String?
+  transactionNo String?
+  responseCode  String?
+  payDate       String?
+  createdAt     DateTime      @default(now())
+  orders        Order[]
+}
+
+model Order {
+  id               Int           @id @default(autoincrement())
+  code             String        @unique
+  buyerId          Int
+  buyer            User          @relation(fields: [buyerId], references: [id])
+  shopId           Int
+  shop             Shop          @relation(fields: [shopId], references: [id])
+  status           OrderStatus   @default(PENDING)
+  paymentMethod    PaymentMethod @default(COD)
+  paymentStatus    PaymentStatus @default(UNPAID)
+  paymentId        Int?
+  payment          Payment?      @relation(fields: [paymentId], references: [id])
+  subtotal         Int
+  shippingFee      Int
+  discount         Int           @default(0)
+  shopDiscount     Int           @default(0)
+  total            Int
+  voucherCode      String?
+  shipName         String
+  shipPhone        String
+  shipAddress      String
+  toDistrictId     Int
+  toWardCode       String
+  shippingService  String        @default("GHN Tiêu chuẩn")
+  ghnOrderCode     String?
+  expectedDelivery DateTime?
+  note             String?
+  cancelReason     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  items         OrderItem[]
+  returnRequest ReturnRequest?
+
+  @@index([buyerId])
+  @@index([shopId])
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  name      String
+  image     String?
+  price     Int
+  qty       Int
+  variant   String  @default("")
+  reviewed  Boolean @default(false)
+}
+
+model Voucher {
+  id        Int          @id @default(autoincrement())
+  code      String       @unique
+  name      String
+  scope     VoucherScope @default(PLATFORM)
+  kind      VoucherKind  @default(DISCOUNT)
+  shopId    Int?
+  shop      Shop?        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  discount  Int
+  minOrder  Int          @default(0)
+  quantity  Int          @default(1000)
+  used      Int          @default(0)
+  active    Boolean      @default(true)
+  expiresAt DateTime?
+  createdAt DateTime     @default(now())
+
+  savedBy UserVoucher[]
+}
+
+model UserVoucher {
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucherId Int
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  usedAt    DateTime?
+
+  @@id([userId, voucherId])
+}
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItemId Int?     @unique
+  rating      Int
+  content     String   @default("")
+  tags        String[]
+  createdAt   DateTime @default(now())
+}
+
+model Wishlist {
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, productId])
+}
+
+model ReturnRequest {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique
+  orderId     Int          @unique
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id])
+  reason      String
+  description String       @default("")
+  amount      Int
+  status      ReturnStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  resolvedAt  DateTime?
+}
+
+model Banner {
+  id        Int      @id @default(autoincrement())
+  title     String
+  subtitle  String?
+  image     String?
+  link      String?
+  position  Int      @default(0)
+  active    Boolean  @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model ShopTransaction {
+  id        Int        @id @default(autoincrement())
+  shopId    Int
+  shop      Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  type      ShopTxType
+  amount    Int
+  status    String     @default("Hoàn tất")
+  note      String
+  createdAt DateTime   @default(now())
+}

@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-canvas text-ink antialiased;
+  }
+  input, button, select, textarea {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .card { @apply rounded-lg bg-white; }
+  .btn { @apply inline-flex whitespace-nowrap items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
+  .btn-outline { @apply btn border border-brand bg-white text-brand hover:bg-brand-soft; }
+  .btn-ghost { @apply btn border border-line bg-white font-medium text-ink hover:border-ink/30; }
+  .btn-danger { @apply btn border border-red-600 bg-white font-medium text-red-700 hover:bg-red-50; }
+  .input { @apply w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15; }
+  .label { @apply flex flex-col gap-1.5 text-[13px] text-muted; }
+  .pill { @apply rounded-full border px-4 py-1.5 text-[13px] transition; }
+  .pill-on { @apply border-brand bg-brand text-white; }
+  .pill-off { @apply border-line bg-white text-ink hover:border-brand/50; }
+  .chip { @apply rounded-full border px-3 py-1.5 text-[13px] transition; }
+  .chip-on { @apply border-brand bg-brand-light text-brand; }
+  .chip-off { @apply border-line bg-white text-ink hover:border-brand/50; }
+  .th { @apply bg-canvas px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted; }
+  .td { @apply border-t border-line px-4 py-3 text-[13px]; }
+  .section-title { @apply text-sm font-semibold uppercase tracking-wide text-muted; }
+}
